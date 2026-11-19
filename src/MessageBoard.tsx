@@ -44,37 +44,6 @@ const birthdayShootAssets: MediaAsset[] = Object.entries(birthdayShootModules)
 // Display images keep the experience complete until the birthday-shoot folder is populated.
 const photoChoices = birthdayShootAssets.length > 0 ? birthdayShootAssets : imageMediaAssets.slice(0, 18)
 
-const starterWishes: Wish[] = [
-    {
-        id: "starter-1",
-        name: "A little love",
-        message: "May every new chapter bring you beautiful reasons to smile, brave reasons to try, and wonderful people to share it all with.",
-        activity: "Take yourself on a surprise day trip and choose every stop by coin toss.",
-        imageSource: photoChoices[0]?.source ?? floralFallback,
-    },
-    {
-        id: "starter-2",
-        name: "For your next adventure",
-        message: "Keep growing, glowing, laughing loudly, and making the world brighter just by being completely and joyfully yourself.",
-        activity: "Try a pottery class and make one wonderfully wonky keepsake.",
-        imageSource: photoChoices[3]?.source ?? floralFallback,
-    },
-    {
-        id: "starter-3",
-        name: "Always cheering for you",
-        message: "May this year feel like your favourite song: joyful, bold, full of rhythm, and unmistakably yours.",
-        activity: "Host a themed dinner where everyone dresses as a different decade.",
-        imageSource: photoChoices[6]?.source ?? floralFallback,
-    },
-    {
-        id: "starter-4",
-        name: "With so much love",
-        message: "Here is to the memories behind you, the people beside you, and all the unexpected magic still waiting ahead.",
-        activity: "Learn one dance routine well enough to teach it to your friends.",
-        imageSource: photoChoices[9]?.source ?? floralFallback,
-    },
-]
-
 const wishFromApi = (wish: RemoteWish): Wish => ({
     id: wish.id,
     name: wish.name,
@@ -92,7 +61,7 @@ const getFloatStyle = (index: number) => ({
 type MessageBoardProps = { onBack: () => void }
 
 export default function MessageBoard({ onBack }: MessageBoardProps) {
-    const [wishes, setWishes] = useState<Wish[]>(starterWishes)
+    const [wishes, setWishes] = useState<Wish[]>([])
     const [view, setView] = useState<BoardView>("wishes")
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [name, setName] = useState("")
@@ -120,13 +89,9 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
     const messageSettleTimeoutRef = useRef<number | null>(null)
 
     const activities = useMemo(() => {
-        const activityWishes = wishes.filter((wish) => wish.activity.trim().length > 0)
-        const starterActivities = activityWishes.filter(({ id }) => id.startsWith("starter-"))
-        const submittedActivities = activityWishes
-            .filter(({ id }) => !id.startsWith("starter-"))
+        return wishes
+            .filter((wish) => wish.activity.trim().length > 0)
             .reverse()
-
-        return [...starterActivities, ...submittedActivities]
     }, [wishes])
     const messagePageCount = Math.max(1, Math.ceil(wishes.length / MESSAGES_PER_PAGE))
     const bucketsPerPage = isMobileBoard ? MOBILE_BUCKETS_PER_PAGE : DESKTOP_BUCKETS_PER_PAGE
@@ -171,12 +136,12 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
         void fetchWishes()
             .then((savedWishes) => {
                 if (cancelled) return
-                setWishes([...savedWishes.map(wishFromApi), ...starterWishes])
+                setWishes(savedWishes.map(wishFromApi))
                 setSyncError("")
             })
             .catch(() => {
                 if (!cancelled) {
-                    setSyncError("Saved messages could not be loaded. The starter messages are still available.")
+                    setSyncError("Saved messages could not be loaded. Please try again later.")
                 }
             })
 
@@ -489,6 +454,14 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                             <p>Every note pairs a favourite photo with a birthday wish and one fun thing to try this year.</p>
                         </div> */}
 
+                        {wishes.length === 0 && (
+                            <div className="mx-auto mt-[clamp(2rem,10vh,7rem)] max-w-lg rounded-3xl border border-light-pink/70 bg-light-pink/65 px-6 py-10 text-center shadow-xl backdrop-blur-2xl">
+                                <Heart className="mx-auto mb-3 text-dark-pink" size={30} aria-hidden="true" />
+                                <h2 className="font-compagnon text-2xl font-medium">No wishes yet</h2>
+                                <p className="mt-2 font-compagnon not-italic">Be the first to leave some birthday love.</p>
+                            </div>
+                        )}
+
                         <div key={messagePage} className="form-step-motion mx-auto hidden max-w-376 grid-cols-3 items-start gap-x-[clamp(0.75rem,1.5vw,1.25rem)] gap-y-[clamp(2rem,6vh,4.5rem)] min-[701px]:grid max-[980px]:grid-cols-2" aria-label="Birthday wishes">
                             {renderWishCards(visibleWishes, true)}
                         </div>
@@ -550,6 +523,14 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                             </div>
                             <p className="max-w-xl text-[clamp(0.83rem,1.15vw,1rem)] leading-snug text-dark-pink max-[700px]:mt-2 max-[700px]:text-xs">{activities.length} ideas, suggested with love. The more playful, surprising and memorable, the better.</p>
                         </div> */}
+
+                        {activities.length === 0 && (
+                            <div className="mx-auto mt-[clamp(2rem,10vh,7rem)] max-w-lg rounded-3xl border border-light-pink/70 bg-light-pink/65 px-6 py-10 text-center shadow-xl backdrop-blur-2xl">
+                                <ListChecks className="mx-auto mb-3 text-dark-pink" size={30} aria-hidden="true" />
+                                <h2 className="font-compagnon text-2xl font-medium">No ideas yet</h2>
+                                <p className="mt-2 font-compagnon not-italic">The first submitted wish will start the bucket list.</p>
+                            </div>
+                        )}
 
                         <div className="mx-auto hidden max-w-312 grid-cols-2 gap-[clamp(0.75rem,1.5vw,1.25rem)] min-[701px]:grid" aria-label="Bucket list suggestions">
                             {renderBucketCards(bucketsForPage(bucketPage), bucketPage * bucketsPerPage, true)}
