@@ -2533,13 +2533,10 @@ body {
   padding-inline: 0.15rem;
 }
 
-.wish-card-motion {
-  transform: rotate(var(--float-rotation));
-  animation: message-card-float 4.8s ease-in-out var(--float-delay) infinite alternate;
-}
-
+.wish-card-motion,
 .bucket-card-motion {
-  animation: message-card-float 5.4s ease-in-out var(--float-delay) infinite alternate;
+  transform: none;
+  animation: none;
 }
 
 .message-pages-mobile-slide[aria-hidden="true"] .wish-card-motion,
