@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, CircleAlert, Heart, ListChecks, Plus, Send, X } from "lucide-react"
 import floralFallback from "./assets/floral-fallback.png"
 import { imageMediaAssets, preloadImagesForSession, type MediaAsset } from "./media"
+import { createWish, fetchWishes, type RemoteWish } from "./wishes-api"
 
 type Wish = {
     id: string
@@ -13,7 +14,6 @@ type Wish = {
 
 type BoardView = "wishes" | "bucket-list"
 
-const STORAGE_KEY = "hif-26-well-wishes"
 const MESSAGES_PER_PAGE = 6
 const MOBILE_BUCKETS_PER_PAGE = 6
 const DESKTOP_BUCKETS_PER_PAGE = 10
@@ -33,7 +33,13 @@ const birthdayShootModules = import.meta.glob(
 
 const birthdayShootAssets: MediaAsset[] = Object.entries(birthdayShootModules)
     .sort(([firstPath], [secondPath]) => firstPath.localeCompare(secondPath))
-    .map(([, source]) => ({ source, thumbnail: source, type: "image" as const, shape: "portrait" as const }))
+    .map(([path, source]) => ({
+        id: path.split("/").pop()?.replace(/\.[^.]+$/, "") ?? path,
+        source,
+        thumbnail: source,
+        type: "image" as const,
+        shape: "portrait" as const,
+    }))
 
 // Display images keep the experience complete until the birthday-shoot folder is populated.
 const photoChoices = birthdayShootAssets.length > 0 ? birthdayShootAssets : imageMediaAssets.slice(0, 18)
@@ -69,29 +75,13 @@ const starterWishes: Wish[] = [
     },
 ]
 
-const readSavedWishes = (): Wish[] => {
-    try {
-        const saved = window.localStorage.getItem(STORAGE_KEY)
-        if (!saved) return []
-        const parsed = JSON.parse(saved) as Partial<Wish>[]
-        if (!Array.isArray(parsed)) return []
-
-        return parsed.flatMap((wish, index) => {
-            if (!wish.name || !wish.message) return []
-            return [{
-                id: wish.id ?? `saved-${index}`,
-                name: wish.name,
-                message: wish.message,
-                activity: wish.activity ?? "Plan a joy-filled adventure together.",
-                imageSource: wish.imageSource
-                    ?? photoChoices[index % Math.max(photoChoices.length, 1)]?.source
-                    ?? floralFallback,
-            }]
-        })
-    } catch {
-        return []
-    }
-}
+const wishFromApi = (wish: RemoteWish): Wish => ({
+    id: wish.id,
+    name: wish.name,
+    message: wish.message,
+    activity: wish.activity,
+    imageSource: photoChoices.find(({ id }) => id === wish.imageId)?.source ?? floralFallback,
+})
 
 const getFloatStyle = (index: number) => ({
     "--float-rotation": `${[-2.2, 1.5, -0.8, 2.1, -1.3, 0.9][index % 6]}deg`,
@@ -99,18 +89,10 @@ const getFloatStyle = (index: number) => ({
     "--float-distance": `${5 + (index % 4) * 2}px`,
 } as CSSProperties)
 
-const createWishId = () => {
-    if (typeof globalThis.crypto?.randomUUID === "function") {
-        return globalThis.crypto.randomUUID()
-    }
-
-    return `wish-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
 type MessageBoardProps = { onBack: () => void }
 
 export default function MessageBoard({ onBack }: MessageBoardProps) {
-    const [wishes, setWishes] = useState<Wish[]>(() => [...readSavedWishes(), ...starterWishes])
+    const [wishes, setWishes] = useState<Wish[]>(starterWishes)
     const [view, setView] = useState<BoardView>("wishes")
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [name, setName] = useState("")
@@ -119,6 +101,8 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
     const [selectedPhoto, setSelectedPhoto] = useState("")
     const [formStep, setFormStep] = useState(0)
     const [error, setError] = useState("")
+    const [syncError, setSyncError] = useState("")
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const [messagePage, setMessagePage] = useState(0)
     const [bucketPage, setBucketPage] = useState(0)
     const [isMobileBoard, setIsMobileBoard] = useState(() => window.matchMedia("(max-width: 700px)").matches)
@@ -179,6 +163,24 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
         if (messageSettleTimeoutRef.current !== null) {
             window.clearTimeout(messageSettleTimeoutRef.current)
         }
+    }, [])
+
+    useEffect(() => {
+        let cancelled = false
+
+        void fetchWishes()
+            .then((savedWishes) => {
+                if (cancelled) return
+                setWishes([...savedWishes.map(wishFromApi), ...starterWishes])
+                setSyncError("")
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setSyncError("Saved messages could not be loaded. The starter messages are still available.")
+                }
+            })
+
+        return () => { cancelled = true }
     }, [])
 
     useEffect(() => {
@@ -356,7 +358,7 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
         setView(nextView)
     }
 
-    const submitWish = (event: FormEvent<HTMLFormElement>) => {
+    const submitWish = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         const cleanName = name.trim()
         const cleanMessage = message.trim()
@@ -385,28 +387,38 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
             return
         }
 
-        const wish: Wish = {
-            id: createWishId(),
-            name: cleanName,
-            message: cleanMessage,
-            activity: cleanActivity,
-            imageSource: selectedPhoto,
-        }
-        const savedWishes = [wish, ...wishes.filter(({ id }) => !id.startsWith("starter-"))]
-
-        try {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedWishes))
-        } catch {
-            setError("Your message could not be saved in this browser. Please try again.")
+        const selectedAsset = photoChoices.find(({ source }) => source === selectedPhoto)
+        if (!selectedAsset) {
+            setError("That photo is no longer available. Please choose another one.")
+            setFormStep(0)
             return
         }
 
-        setWishes((current) => [wish, ...current])
-        setHighlightedWishId(wish.id)
-        setMessagePage(0)
-        resetForm()
-        setIsFormOpen(false)
-        setView("wishes")
+        setIsSubmitting(true)
+        setError("")
+        try {
+            const savedWish = await createWish({
+                name: cleanName,
+                message: cleanMessage,
+                activity: cleanActivity,
+                imageId: selectedAsset.id,
+            })
+            const wish = wishFromApi(savedWish)
+
+            setWishes((current) => [wish, ...current])
+            setHighlightedWishId(wish.id)
+            setMessagePage(0)
+            resetForm()
+            setIsFormOpen(false)
+            setView("wishes")
+            setSyncError("")
+        } catch (submissionError) {
+            setError(submissionError instanceof Error
+                ? submissionError.message
+                : "Your message could not be saved. Please try again.")
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     const renderWishCards = (pageWishes: Wish[], prioritize = false) => pageWishes.map((wish, index) => (
@@ -437,6 +449,12 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
     return (
         <main className="message-board-floral relative isolate grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-bright-pink text-dark-pink max-[700px]:h-dvh max-[700px]:min-h-dvh max-[700px]:grid-rows-[minmax(0,1fr)] max-[700px]:overscroll-none">
             <div className="message-board-ambient-glow pointer-events-none absolute inset-[-20%] -z-10" aria-hidden="true" />
+
+            {syncError && (
+                <p className="fixed right-4 bottom-4 left-4 z-60 mx-auto max-w-xl rounded-xl border border-white/70 bg-[#831843] px-4 py-3 text-center font-compagnon text-sm font-medium not-italic text-white shadow-xl" role="alert">
+                    {syncError}
+                </p>
+            )}
 
             <button type="button" className="absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] z-50 grid size-11 place-items-center rounded-full border border-light-pink/75 bg-light-pink/70 text-dark-pink shadow-[0_10px_30px_rgb(99_17_58/0.18),inset_0_1px_0_rgb(255_255_255/0.7)] backdrop-blur-2xl max-[700px]:fixed" onClick={onBack} aria-label="Back to gallery">
                 <ArrowLeft size={19} strokeWidth={2.4} aria-hidden="true" />
@@ -736,15 +754,18 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                                 type="submit"
                                 className="flex flex-1 items-center justify-center gap-2 rounded-full border-0 bg-dark-pink px-4 py-3 font-compagnon text-sm font-medium not-italic text-light-pink transition data-[complete=false]:cursor-not-allowed data-[complete=false]:bg-dark-pink/35 data-[complete=false]:text-dark-pink/55 data-[complete=false]:shadow-inner"
                                 data-complete={isCurrentStepComplete}
-                                aria-disabled={!isCurrentStepComplete}
+                                disabled={isSubmitting}
+                                aria-disabled={!isCurrentStepComplete || isSubmitting}
                                 aria-describedby={error ? "message-form-error" : undefined}
                                 onClick={(event) => {
-                                    if (isCurrentStepComplete) return
+                                    if (isCurrentStepComplete || isSubmitting) return
                                     event.preventDefault()
                                     setError(FORM_STEP_ERRORS[formStep] ?? "Complete this step before continuing.")
                                 }}
                             >
-                                {formStep === 4 ? <>Send some love <Send size={17} aria-hidden="true" /></> : <>Continue <span aria-hidden="true">→</span></>}
+                                {formStep === 4
+                                    ? <>{isSubmitting ? "Sending…" : "Send some love"} <Send size={17} aria-hidden="true" /></>
+                                    : <>Continue <span aria-hidden="true">→</span></>}
                             </button>
                         </div>
                     </form>
