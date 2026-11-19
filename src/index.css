@@ -2546,6 +2546,19 @@ body {
   animation: none;
 }
 
+@media (min-width: 701px) {
+  .wish-card-motion,
+  .bucket-card-motion {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .wish-card-motion img,
+  .bucket-card-motion img {
+    image-rendering: auto;
+  }
+}
+
 .message-pages-mobile-slide[aria-hidden="true"] .wish-card-motion,
 .message-pages-mobile-slide[aria-hidden="true"] .bucket-card-motion {
   animation-play-state: paused;
