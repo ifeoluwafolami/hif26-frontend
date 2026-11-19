@@ -485,6 +485,7 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                             <div
                                 key="wishes-swipe-track"
                                 className={`message-pages-mobile-track ${isMessageSettling ? "is-settling" : ""}`}
+                                data-page-count={messagePageCount}
                                 data-swipe-hint={!hasTouchedMessages && messagePageCount > 1 || undefined}
                                 style={{
                                     "--message-page-drag-x": `${messageDragX}px`,
@@ -555,6 +556,7 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                             <div
                                 key="bucket-list-swipe-track"
                                 className={`message-pages-mobile-track ${isMessageSettling ? "is-settling" : ""}`}
+                                data-page-count={bucketPageCount}
                                 data-swipe-hint={!hasTouchedMessages && bucketPageCount > 1 || undefined}
                                 style={{
                                     "--message-page-drag-x": `${messageDragX}px`,
