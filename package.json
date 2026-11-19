@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "compress-videos": "node scripts/compress-videos.mjs",
+    "optimize-birthday-shoot": "node scripts/optimize-birthday-shoot.mjs",
     "optimize-images": "node scripts/optimize-images.mjs",
     "preview": "vite preview"
   },

@@ -27,16 +27,25 @@ const FORM_STEP_ERRORS = [
 ]
 
 const birthdayShootModules = import.meta.glob(
-    "./assets/birthday-shoot/*.{jpg,jpeg,png,webp,avif}",
+    "./assets/birthday-shoot-display/*.jpg",
     { eager: true, import: "default", query: "?url" },
 ) as Record<string, string>
+
+const birthdayShootThumbnailModules = import.meta.glob(
+    "./assets/birthday-shoot-thumbnails/*.jpg",
+    { eager: true, import: "default", query: "?url" },
+) as Record<string, string>
+
+const getAssetId = (path: string) =>
+    path.split("/").pop()?.replace(/\.[^.]+$/, "") ?? path
 
 const birthdayShootAssets: MediaAsset[] = Object.entries(birthdayShootModules)
     .sort(([firstPath], [secondPath]) => firstPath.localeCompare(secondPath))
     .map(([path, source]) => ({
-        id: path.split("/").pop()?.replace(/\.[^.]+$/, "") ?? path,
+        id: getAssetId(path),
         source,
-        thumbnail: source,
+        thumbnail: Object.entries(birthdayShootThumbnailModules)
+            .find(([thumbnailPath]) => getAssetId(thumbnailPath) === getAssetId(path))?.[1] ?? source,
         type: "image" as const,
         shape: "portrait" as const,
     }))
