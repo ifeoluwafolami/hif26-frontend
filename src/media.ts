@@ -9,6 +9,7 @@ const thumbnailModules = import.meta.glob(
 ) as Record<string, string>
 
 export type MediaAsset = {
+    id: string
     source: string
     thumbnail: string
     type: "image"
@@ -37,9 +38,15 @@ const getMediaShape = (path: string): MediaShape => {
     return "portrait"
 }
 
+const getMediaId = (path: string) => {
+    const fileName = path.split("/").pop() ?? path
+    return fileName.replace(/\.[^.]+$/, "")
+}
+
 export const imageMediaAssets: MediaAsset[] = Object.entries(imageModules)
     .sort(([firstPath], [secondPath]) => firstPath.localeCompare(secondPath))
     .map(([path, source]) => ({
+        id: getMediaId(path),
         source,
         thumbnail: Object.entries(thumbnailModules).find(([thumbnailPath]) =>
             thumbnailPath.split("/").pop() === path.split("/").pop()
