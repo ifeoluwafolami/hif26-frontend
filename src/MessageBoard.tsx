@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type TouchEvent } from "react"
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, CircleAlert, Heart, ListChecks, Plus, Send, X } from "lucide-react"
 import floralFallback from "./assets/floral-fallback.png"
-import { imageMediaAssets, preloadImagesForSession, type MediaAsset } from "./media"
+import { birthdayShootAssets, imageMediaAssets, preloadImagesForSession } from "./media"
 import { createWish, fetchWishes, type RemoteWish } from "./wishes-api"
 
 type Wish = {
@@ -25,30 +25,6 @@ const FORM_STEP_ERRORS = [
     "Add one fun idea for the year ahead.",
     "Tell me who you are right now! No mysterious admirers today.",
 ]
-
-const birthdayShootModules = import.meta.glob(
-    "./assets/birthday-shoot-display/*.jpg",
-    { eager: true, import: "default", query: "?url" },
-) as Record<string, string>
-
-const birthdayShootThumbnailModules = import.meta.glob(
-    "./assets/birthday-shoot-thumbnails/*.jpg",
-    { eager: true, import: "default", query: "?url" },
-) as Record<string, string>
-
-const getAssetId = (path: string) =>
-    path.split("/").pop()?.replace(/\.[^.]+$/, "") ?? path
-
-const birthdayShootAssets: MediaAsset[] = Object.entries(birthdayShootModules)
-    .sort(([firstPath], [secondPath]) => firstPath.localeCompare(secondPath))
-    .map(([path, source]) => ({
-        id: getAssetId(path),
-        source,
-        thumbnail: Object.entries(birthdayShootThumbnailModules)
-            .find(([thumbnailPath]) => getAssetId(thumbnailPath) === getAssetId(path))?.[1] ?? source,
-        type: "image" as const,
-        shape: "portrait" as const,
-    }))
 
 // Display images keep the experience complete until the birthday-shoot folder is populated.
 const photoChoices = birthdayShootAssets.length > 0 ? birthdayShootAssets : imageMediaAssets.slice(0, 18)
@@ -402,7 +378,7 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                 <Heart className="absolute right-2 bottom-2 text-light-pink drop-shadow-[0_2px_4px_rgb(99_17_58/0.55)]" size={17} fill="currentColor" aria-hidden="true" />
             </div>
             <div className="min-w-0 pr-1.5">
-                <p className="line-clamp-6 overflow-hidden text-ellipsis font-compagnon text-[clamp(0.92rem,1.35vw,1.22rem)] leading-[1.16] max-[700px]:text-[0.94rem]">{wish.message}</p>
+                <p className="line-clamp-6 pb-0.5 font-compagnon text-[clamp(0.92rem,1.35vw,1.22rem)] leading-[1.28] max-[700px]:text-[0.94rem]">{wish.message}</p>
                 <span className="mt-3 block font-reglo text-[0.86rem] font-bold tracking-[0.06em] text-[#be185d] uppercase max-[700px]:mt-2 max-[700px]:text-[0.78rem]">— {wish.name}</span>
             </div>
         </button>

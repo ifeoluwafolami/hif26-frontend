@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { ArrowRight } from "lucide-react"
-import { preloadAllMedia } from "./media"
+import { birthdayShootAssets, preloadAllMedia } from "./media"
 import CallIntro from "./CallIntro"
 import MessageBoard from "./MessageBoard"
 import PhotoWall from "./PhotoWall"
@@ -80,6 +80,7 @@ export default function Hero({
                             <div className="relative h-full w-full">
                                 <PhotoWall
                                     seed={11}
+                                    assets={birthdayShootAssets}
                                     count={14}
                                     mediaOffset={0}
                                     wallColorClass="bg-bright-pink"

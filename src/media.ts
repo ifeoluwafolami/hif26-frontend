@@ -8,6 +8,16 @@ const thumbnailModules = import.meta.glob(
     { eager: true, import: "default", query: "?url" },
 ) as Record<string, string>
 
+const birthdayShootModules = import.meta.glob(
+    "./assets/birthday-shoot-display/*.jpg",
+    { eager: true, import: "default", query: "?url" },
+) as Record<string, string>
+
+const birthdayShootThumbnailModules = import.meta.glob(
+    "./assets/birthday-shoot-thumbnails/*.jpg",
+    { eager: true, import: "default", query: "?url" },
+) as Record<string, string>
+
 export type MediaAsset = {
     id: string
     source: string
@@ -55,7 +65,18 @@ export const imageMediaAssets: MediaAsset[] = Object.entries(imageModules)
         shape: getMediaShape(path),
     }))
 
-export const mediaAssets = imageMediaAssets
+export const birthdayShootAssets: MediaAsset[] = Object.entries(birthdayShootModules)
+    .sort(([firstPath], [secondPath]) => firstPath.localeCompare(secondPath))
+    .map(([path, source]) => ({
+        id: getMediaId(path),
+        source,
+        thumbnail: Object.entries(birthdayShootThumbnailModules)
+            .find(([thumbnailPath]) => getMediaId(thumbnailPath) === getMediaId(path))?.[1] ?? source,
+        type: "image" as const,
+        shape: "portrait" as const,
+    }))
+
+export const mediaAssets = [...birthdayShootAssets, ...imageMediaAssets]
 
 let preloadPromise: Promise<void> | null = null
 let preloadProgress = 0
@@ -140,7 +161,7 @@ export const preloadImagesForSession = (
 
 const startMediaPreload = async () => {
     const isMobile = window.matchMedia("(max-width: 640px)").matches
-    const thumbnailSources = [...new Set(imageMediaAssets.map(({ thumbnail }) => thumbnail))]
+    const thumbnailSources = [...new Set(mediaAssets.map(({ thumbnail }) => thumbnail))]
     const totalAssets = thumbnailSources.length
     let completed = 0
     const markComplete = () => {

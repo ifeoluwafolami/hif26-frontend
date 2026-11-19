@@ -39,6 +39,7 @@ const DESKTOP_FRONT_SIDE_LEFTS = [4.5, 15.5, 75, 86]
 type PhotoWallProps = {
     seed: number
     wallColorClass: "bg-bright-pink" | "bg-blush-pink"
+    assets?: MediaAsset[]
     active?: boolean
     count?: number
     compact?: boolean
@@ -304,6 +305,7 @@ const createFrameLayout = (
 export default function PhotoWall({
     seed,
     wallColorClass,
+    assets = imageMediaAssets,
     active = true,
     count = 12,
     compact = false,
@@ -316,6 +318,9 @@ export default function PhotoWall({
     mobileSurfaceEdge,
     leaving = false,
 }: PhotoWallProps) {
+    const wallAssets = assets.length > 0
+        ? shuffleAssets([...assets], createRandom(2026 + seed))
+        : shuffledMediaAssets
     const [isMobile, setIsMobile] = useState(() =>
         window.matchMedia(MOBILE_BREAKPOINT).matches,
     )
@@ -414,9 +419,12 @@ export default function PhotoWall({
         mediaCycle: number,
         frameShape: MediaShape,
     ) => {
-        const compatibleAssets = shuffledMediaAssets.filter(
+        const shapeCompatibleAssets = wallAssets.filter(
             ({ shape }) => shape === frameShape,
         )
+        const compatibleAssets = shapeCompatibleAssets.length > 0
+            ? shapeCompatibleAssets
+            : wallAssets
         const shapeRank = getShapeRank(
             mediaOffset,
             frameIndex,
@@ -451,7 +459,7 @@ export default function PhotoWall({
                     // Every surface shares one complete, stable queue. This keeps
                     // navigation from being limited to the frames on the wall that
                     // happened to open the lightbox.
-                    setLightboxAssets(imageMediaAssets)
+                    setLightboxAssets(wallAssets)
                     setSelectedAsset(currentAsset)
                 }
                 const style: CSSProperties = {
