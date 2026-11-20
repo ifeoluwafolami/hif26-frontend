@@ -507,14 +507,14 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                                 <span className="mb-1 block text-[0.66rem] font-bold tracking-[0.14em] text-[#be185d]">THINGS TO TRY THIS YEAR</span>
                                 <h2 className="font-compagnon text-[clamp(1.35rem,2.5vw,2.35rem)] font-medium leading-none max-[700px]:text-xl">The birthday bucket list</h2>
                             </div>
-                            <p className="max-w-xl text-[clamp(0.83rem,1.15vw,1rem)] leading-snug text-dark-pink max-[700px]:mt-2 max-[700px]:text-xs">{activities.length} ideas, suggested with love. The more playful, surprising and memorable, the better.</p>
+                            <p className="max-w-xl text-[clamp(0.83rem,1.15vw,1rem)] leading-snug text-dark-pink max-[700px]:mt-2 max-[700px]:text-xs">{activities.length} , suggested with love. The more playful, surprising and memorable, the better.</p>
                         </div> */}
 
                         {activities.length === 0 && (
                             <div className="mx-auto mt-[clamp(2rem,10vh,7rem)] max-w-lg rounded-3xl border border-light-pink/70 bg-light-pink/65 px-6 py-10 text-center shadow-xl backdrop-blur-2xl">
                                 <ListChecks className="mx-auto mb-3 text-dark-pink" size={30} aria-hidden="true" />
-                                <h2 className="font-compagnon text-2xl font-medium">No ideas yet</h2>
-                                <p className="mt-2 font-compagnon not-italic">The first submitted wish will start the bucket list.</p>
+                                <h2 className="font-compagnon text-2xl font-medium">No entries yet</h2>
+                                <p className="mt-2 font-compagnon not-italic">Suggest something fun for HIF to do!</p>
                             </div>
                         )}
 
