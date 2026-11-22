@@ -213,7 +213,7 @@ export default function CallIntro({ onRevealStart, onComplete }: CallIntroProps)
                     <div className="mosaic-grid grid aspect-3/5 w-[min(94vw,45dvh)] grid-cols-3 grid-rows-5 gap-0.75 bg-soft-pink sm:w-[min(72vw,48dvh)] sm:max-w-lg sm:gap-1.25" role="img" aria-label="Five rows of birthday photographs with HIF-26, 23 November 2026 in the middle row">
                         {mosaicAssets.slice(0, 6).map((asset, index) => (
                             <figure className="mosaic-tile relative overflow-hidden bg-blush-pink" style={{ "--mosaic-index": index } as CSSProperties} key={`top-${asset.source}`}>
-                                <img className="size-full object-cover" src={asset.thumbnail} alt="" loading="eager" decoding="async" />
+                                <img className="size-full object-cover object-top" src={asset.thumbnail} alt="" loading="eager" decoding="async" />
                                 <span className="absolute inset-0 bg-linear-to-t from-dark-pink/15 to-transparent" aria-hidden="true" />
                             </figure>
                         ))}
@@ -234,7 +234,7 @@ export default function CallIntro({ onRevealStart, onComplete }: CallIntroProps)
 
                         {mosaicAssets.slice(6, 12).map((asset, index) => (
                             <figure className="mosaic-tile relative overflow-hidden bg-blush-pink" style={{ "--mosaic-index": index + 9 } as CSSProperties} key={`bottom-${asset.source}`}>
-                                <img className="size-full object-cover" src={asset.thumbnail} alt="" loading="eager" decoding="async" />
+                                <img className="size-full object-cover object-top" src={asset.thumbnail} alt="" loading="eager" decoding="async" />
                                 <span className="absolute inset-0 bg-linear-to-t from-dark-pink/15 to-transparent" aria-hidden="true" />
                             </figure>
                         ))}
