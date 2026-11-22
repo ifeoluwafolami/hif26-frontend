@@ -104,6 +104,9 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
     const selectedEditableUntil = selectedWish ? Date.parse(selectedWish.createdAt) + 60_000 : 0
     const canEditSelected = Boolean(selectedEditToken && clock < selectedEditableUntil)
     const editSecondsRemaining = Math.max(0, Math.ceil((selectedEditableUntil - clock) / 1000))
+    const canManageWish = (wish: Wish) => Boolean(
+        getWishEditToken(wish.id) && clock < Date.parse(wish.createdAt) + 60_000,
+    )
     const selectedMessageSize = selectedMessageLength > 650
         ? "text-[0.88rem] leading-[1.28]"
         : selectedMessageLength > 380
@@ -131,17 +134,16 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
     }, [])
 
     useEffect(() => {
-        if (!selectedWish || !selectedEditToken || clock >= selectedEditableUntil) return
         const timer = window.setInterval(() => {
             const currentTime = Date.now()
             setClock(currentTime)
-            if (currentTime >= selectedEditableUntil) {
+            if (selectedWish && selectedEditToken && currentTime >= selectedEditableUntil) {
                 removeWishEditToken(selectedWish.id)
                 setIsEditingSelected(false)
             }
         }, 1_000)
         return () => window.clearInterval(timer)
-    }, [clock, selectedEditToken, selectedEditableUntil, selectedWish])
+    }, [selectedEditToken, selectedEditableUntil, selectedWish])
 
     useEffect(() => {
         let cancelled = false
@@ -349,13 +351,18 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
         setSelectedActionError("")
     }
 
-    const beginSelectedEdit = () => {
-        if (!selectedWish || !canEditSelected) return
-        setEditName(selectedWish.name)
-        setEditMessage(selectedWish.message)
-        setEditActivity(selectedWish.activity)
+    const beginWishEdit = (wish: Wish) => {
+        if (!canManageWish(wish)) return
+        openWish(wish)
+        setEditName(wish.name)
+        setEditMessage(wish.message)
+        setEditActivity(wish.activity)
         setSelectedActionError("")
         setIsEditingSelected(true)
+    }
+
+    const beginSelectedEdit = () => {
+        if (selectedWish) beginWishEdit(selectedWish)
     }
 
     const saveSelectedEdit = async () => {
@@ -391,18 +398,19 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
         }
     }
 
-    const deleteSelectedWish = async () => {
-        if (!selectedWish || !selectedEditToken || !canEditSelected) return
+    const deleteWishEntry = async (wish: Wish) => {
+        const editToken = getWishEditToken(wish.id)
+        if (!editToken || !canManageWish(wish)) return
         if (!window.confirm("Delete this wish and bucket-list entry?")) return
 
         setIsMutatingSelected(true)
         setSelectedActionError("")
         try {
-            await deleteWish(selectedWish.id, selectedEditToken)
-            removeWishEditToken(selectedWish.id)
-            setWishes((current) => current.filter(({ id }) => id !== selectedWish.id))
-            setHighlightedWishId((current) => current === selectedWish.id ? null : current)
-            closeSelectedWish()
+            await deleteWish(wish.id, editToken)
+            removeWishEditToken(wish.id)
+            setWishes((current) => current.filter(({ id }) => id !== wish.id))
+            setHighlightedWishId((current) => current === wish.id ? null : current)
+            if (selectedWish?.id === wish.id) closeSelectedWish()
         } catch (mutationError) {
             setSelectedActionError(mutationError instanceof Error
                 ? mutationError.message
@@ -411,6 +419,10 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
             setIsMutatingSelected(false)
             setClock(Date.now())
         }
+    }
+
+    const deleteSelectedWish = async () => {
+        if (selectedWish) await deleteWishEntry(selectedWish)
     }
 
     const submitWish = async (event: FormEvent<HTMLFormElement>) => {
@@ -478,16 +490,24 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
     }
 
     const renderWishCards = (pageWishes: Wish[], prioritize = false) => pageWishes.map((wish, index) => (
-        <button type="button" className="wish-card-motion grid min-w-0 cursor-pointer grid-cols-[minmax(6.2rem,36%)_minmax(0,1fr)] items-center gap-[clamp(0.75rem,1.3vw,1.15rem)] rounded-[1.35rem] border border-light-pink/85 bg-light-pink/80 p-3 text-left shadow-[inset_0_1px_0_rgb(255_255_255/0.85),0_14px_34px_rgb(99_17_58/0.2)] backdrop-blur-xl transition-[box-shadow,background-color] hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.85),0_20px_42px_rgb(99_17_58/0.3)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-light-pink data-[highlighted=true]:bg-white/90 data-[highlighted=true]:shadow-[inset_0_0_0_3px_rgb(157_23_77),0_20px_48px_rgb(99_17_58/0.42)] max-[700px]:min-h-[7.3rem] max-[700px]:grid-cols-[minmax(5.4rem,31%)_minmax(0,1fr)] max-[700px]:gap-3 max-[700px]:rounded-[1.1rem] max-[700px]:p-2" key={wish.id} data-wish-id={wish.id} data-highlighted={wish.id === highlightedWishId} style={getFloatStyle(index)} onClick={() => openWish(wish)} aria-label={`Open message from ${wish.name}`}>
-            <div className="relative aspect-4/5 overflow-hidden rounded-xl border-[5px] border-dark-pink bg-dark-pink shadow-[0_8px_18px_rgb(99_17_58/0.22)] max-[700px]:max-h-[8.8rem] max-[700px]:rounded-lg max-[700px]:border-4">
-                <img className="block size-full object-cover" src={wish.imageSource} alt="" loading={prioritize ? "eager" : "lazy"} decoding="async" fetchPriority={prioritize && index < 2 ? "high" : "auto"} onError={(event) => { event.currentTarget.src = floralFallback }} />
-                <Heart className="absolute right-2 bottom-2 text-light-pink drop-shadow-[0_2px_4px_rgb(99_17_58/0.55)]" size={17} fill="currentColor" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 pr-1.5">
-                <p className="line-clamp-6 pb-0.5 font-compagnon text-[clamp(0.92rem,1.35vw,1.22rem)] leading-[1.28] max-[700px]:text-[0.94rem]">{wish.message}</p>
-                <span className="mt-3 block font-reglo text-[0.86rem] font-bold tracking-[0.06em] text-[#be185d] uppercase max-[700px]:mt-2 max-[700px]:text-[0.78rem]">— {wish.name}</span>
-            </div>
-        </button>
+        <div className="relative min-w-0" key={wish.id} data-wish-id={wish.id} style={getFloatStyle(index)}>
+            <button type="button" className="wish-card-motion grid w-full min-w-0 cursor-pointer grid-cols-[minmax(6.2rem,36%)_minmax(0,1fr)] items-center gap-[clamp(0.75rem,1.3vw,1.15rem)] rounded-[1.35rem] border border-light-pink/85 bg-light-pink/80 p-3 text-left shadow-[inset_0_1px_0_rgb(255_255_255/0.85),0_14px_34px_rgb(99_17_58/0.2)] backdrop-blur-xl transition-[box-shadow,background-color] hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.85),0_20px_42px_rgb(99_17_58/0.3)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-light-pink data-[highlighted=true]:bg-white/90 data-[highlighted=true]:shadow-[inset_0_0_0_3px_rgb(157_23_77),0_20px_48px_rgb(99_17_58/0.42)] max-[700px]:min-h-[7.3rem] max-[700px]:grid-cols-[minmax(5.4rem,31%)_minmax(0,1fr)] max-[700px]:gap-3 max-[700px]:rounded-[1.1rem] max-[700px]:p-2" data-highlighted={wish.id === highlightedWishId} onClick={() => openWish(wish)} aria-label={`Open message from ${wish.name}`}>
+                <div className="relative aspect-4/5 overflow-hidden rounded-xl border-[5px] border-dark-pink bg-dark-pink shadow-[0_8px_18px_rgb(99_17_58/0.22)] max-[700px]:max-h-[8.8rem] max-[700px]:rounded-lg max-[700px]:border-4">
+                    <img className="block size-full object-cover" src={wish.imageSource} alt="" loading={prioritize ? "eager" : "lazy"} decoding="async" fetchPriority={prioritize && index < 2 ? "high" : "auto"} onError={(event) => { event.currentTarget.src = floralFallback }} />
+                    <Heart className="absolute right-2 bottom-2 text-light-pink drop-shadow-[0_2px_4px_rgb(99_17_58/0.55)]" size={17} fill="currentColor" aria-hidden="true" />
+                </div>
+                <div className={`min-w-0 pr-1.5 ${canManageWish(wish) ? "pt-7" : ""}`}>
+                    <p className="line-clamp-6 pb-0.5 font-compagnon text-[clamp(0.92rem,1.35vw,1.22rem)] leading-[1.28] max-[700px]:text-[0.94rem]">{wish.message}</p>
+                    <span className="mt-3 block font-reglo text-[0.86rem] font-bold tracking-[0.06em] text-[#be185d] uppercase max-[700px]:mt-2 max-[700px]:text-[0.78rem]">— {wish.name}</span>
+                </div>
+            </button>
+            {canManageWish(wish) && (
+                <div className="absolute top-2 right-2 z-10 flex gap-1.5">
+                    <button type="button" className="grid size-8 place-items-center rounded-full border border-white/80 bg-light-pink/95 text-dark-pink shadow-md" onClick={() => beginWishEdit(wish)} aria-label={`Edit entry from ${wish.name}`}><Pencil size={14} aria-hidden="true" /></button>
+                    <button type="button" className="grid size-8 place-items-center rounded-full border border-white/80 bg-light-pink/95 text-dark-pink shadow-md" onClick={() => void deleteWishEntry(wish)} aria-label={`Delete entry from ${wish.name}`}><Trash2 size={14} aria-hidden="true" /></button>
+                </div>
+            )}
+        </div>
     ))
 
     const renderBucketCards = (pageActivities: Wish[], pageStartIndex = 0, prioritize = false) => pageActivities.map((wish, index) => (
@@ -499,6 +519,12 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                 <p className="pr-6 text-[clamp(0.95rem,1.5vw,1.25rem)] font-medium leading-[1.15] max-[700px]:text-[0.96rem]">{wish.activity}</p>
                 <span className="col-start-2 mt-2 text-[0.67rem] tracking-wider text-[#be185d] uppercase">suggested by {wish.name}</span>
             </div>
+            {canManageWish(wish) && (
+                <div className="absolute right-2 bottom-2 z-10 flex gap-1.5">
+                    <button type="button" className="grid size-7 place-items-center rounded-full border border-white/80 bg-light-pink/95 text-dark-pink shadow-md" onClick={() => beginWishEdit(wish)} aria-label={`Edit entry from ${wish.name}`}><Pencil size={13} aria-hidden="true" /></button>
+                    <button type="button" className="grid size-7 place-items-center rounded-full border border-white/80 bg-light-pink/95 text-dark-pink shadow-md" onClick={() => void deleteWishEntry(wish)} aria-label={`Delete entry from ${wish.name}`}><Trash2 size={13} aria-hidden="true" /></button>
+                </div>
+            )}
         </article>
     ))
 
