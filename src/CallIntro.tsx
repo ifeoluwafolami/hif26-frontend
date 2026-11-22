@@ -13,6 +13,10 @@ import { imageMediaAssets } from "./media"
 const ANSWER_THRESHOLD = 0.78
 const INTRO_EXIT_DURATION = 1100
 const MOSAIC_DURATION = 4200
+const formatDeviceTime = () => new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+}).format(new Date())
 const mosaicAssets = imageMediaAssets.length > 0
     ? Array.from(
         { length: 12 },
@@ -31,8 +35,16 @@ export default function CallIntro({ onRevealStart, onComplete }: CallIntroProps)
     const [stage, setStage] = useState<IntroStage>("calling")
     const [sliderOffset, setSliderOffset] = useState(0)
     const [isDragging, setIsDragging] = useState(false)
+    const [deviceTime, setDeviceTime] = useState(formatDeviceTime)
     const trackRef = useRef<HTMLDivElement>(null)
     const dragStartRef = useRef({ pointerX: 0, offset: 0 })
+
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            setDeviceTime(formatDeviceTime())
+        }, 15_000)
+        return () => window.clearInterval(interval)
+    }, [])
 
     useEffect(() => {
         if (stage !== "mosaic") return
@@ -139,7 +151,7 @@ export default function CallIntro({ onRevealStart, onComplete }: CallIntroProps)
                 style={{ "--call-wallpaper": `url(${floralFallback})` } as CSSProperties}
             >
                 <div className="call-status-bar flex items-center justify-between px-7 pt-[max(1rem,env(safe-area-inset-top))] text-sm font-semibold" aria-hidden="true">
-                    <span>9:26</span>
+                    <span>{deviceTime}</span>
                     <div className="flex items-center gap-2">
                         <span className="call-signal">
                             <i /><i /><i />
