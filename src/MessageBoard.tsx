@@ -647,8 +647,8 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                                     </div>
                                     <label className="mx-auto block max-w-xl">
                                         <span className="mb-2 block text-xs font-semibold text-dark-pink">Your masterpiece</span>
-                                        <textarea className="block min-h-40 w-full resize-none rounded-2xl border border-dark-pink/20 bg-white/60 px-3.5 py-3 font-compagnon text-[clamp(1rem,1.8vw,1.15rem)] leading-snug text-[#831843] outline-none placeholder:text-[#831843]/55 focus:border-deep-pink focus:ring-3 focus:ring-deep-pink/15 max-[700px]:min-h-36" autoFocus value={message} onChange={(event) => { setMessage(event.target.value); setError("") }} maxLength={600} rows={7} placeholder="May this chapter be filled with…" />
-                                        <small className="mt-1.5 block text-right text-[0.66rem] text-[#831843]/60">{message.length}/600</small>
+                                        <textarea className="block min-h-40 w-full resize-none rounded-2xl border border-dark-pink/20 bg-white/60 px-3.5 py-3 font-compagnon text-[clamp(1rem,1.8vw,1.15rem)] leading-snug text-[#831843] outline-none placeholder:text-[#831843]/55 focus:border-deep-pink focus:ring-3 focus:ring-deep-pink/15 max-[700px]:min-h-36" autoFocus value={message} onChange={(event) => { setMessage(event.target.value); setError("") }} maxLength={1000} rows={7} placeholder="May this chapter be filled with…" />
+                                        <small className="mt-1.5 block text-right text-[0.66rem] text-[#831843]/60">{message.length}/1000</small>
                                     </label>
                                 </>
                             )}
@@ -661,8 +661,8 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                                     </div>
                                     <label className="mx-auto block max-w-xl">
                                         <span className="mb-2 block text-xs font-semibold text-dark-pink">Your brilliant suggestion</span>
-                                        <textarea className="block min-h-40 w-full resize-none rounded-2xl border border-dark-pink/20 bg-white/60 px-3.5 py-3 font-compagnon text-[clamp(1rem,1.8vw,1.15rem)] leading-snug text-[#831843] outline-none placeholder:text-[#831843]/55 focus:border-deep-pink focus:ring-3 focus:ring-deep-pink/15 max-[700px]:min-h-36" autoFocus value={activity} onChange={(event) => { setActivity(event.target.value); setError("") }} maxLength={240} rows={6} placeholder="Take a class, plan a trip, start a silly tradition…" />
-                                        <small className="mt-1.5 block text-right text-[0.66rem] text-[#831843]/60">{activity.length}/240</small>
+                                        <textarea className="block min-h-40 w-full resize-none rounded-2xl border border-dark-pink/20 bg-white/60 px-3.5 py-3 font-compagnon text-[clamp(1rem,1.8vw,1.15rem)] leading-snug text-[#831843] outline-none placeholder:text-[#831843]/55 focus:border-deep-pink focus:ring-3 focus:ring-deep-pink/15 max-[700px]:min-h-36" autoFocus value={activity} onChange={(event) => { setActivity(event.target.value); setError("") }} maxLength={500} rows={6} placeholder="Take a class, plan a trip, start a silly tradition…" />
+                                        <small className="mt-1.5 block text-right text-[0.66rem] text-[#831843]/60">{activity.length}/500</small>
                                     </label>
                                 </>
                             )}
