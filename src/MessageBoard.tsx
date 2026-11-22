@@ -497,7 +497,7 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                     <Heart className="absolute right-2 bottom-2 text-light-pink drop-shadow-[0_2px_4px_rgb(99_17_58/0.55)]" size={17} fill="currentColor" aria-hidden="true" />
                 </div>
                 <div className={`min-w-0 pr-1.5 ${canManageWish(wish) ? "pt-7" : ""}`}>
-                    <p className="line-clamp-6 pb-0.5 font-compagnon text-[clamp(0.92rem,1.35vw,1.22rem)] leading-[1.28] max-[700px]:text-[0.94rem]">{wish.message}</p>
+                    <p className="line-clamp-6 whitespace-pre-wrap break-words pb-0.5 font-compagnon text-[clamp(0.92rem,1.35vw,1.22rem)] leading-[1.28] max-[700px]:text-[0.94rem]">{wish.message}</p>
                     <span className="mt-3 block font-reglo text-[0.86rem] font-bold tracking-[0.06em] text-[#be185d] uppercase max-[700px]:mt-2 max-[700px]:text-[0.78rem]">— {wish.name}</span>
                 </div>
             </button>
@@ -516,7 +516,7 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
             <img className="h-[5.2rem] w-18 rounded-xl border-4 border-dark-pink object-cover max-[700px]:h-[4.6rem] max-[700px]:w-[3.8rem]" src={wish.imageSource} alt="" loading={prioritize ? "eager" : "lazy"} decoding="async" fetchPriority={prioritize && index < 2 ? "high" : "auto"} onError={(event) => { event.currentTarget.src = floralFallback }} />
             <div className="grid grid-cols-[auto_1fr] items-start gap-x-2">
                 <Check className="mt-0.5 text-deep-pink" size={18} strokeWidth={2.6} aria-hidden="true" />
-                <p className="pr-6 text-[clamp(0.95rem,1.5vw,1.25rem)] font-medium leading-[1.15] max-[700px]:text-[0.96rem]">{wish.activity}</p>
+                <p className="pr-6 whitespace-pre-wrap break-words text-[clamp(0.95rem,1.5vw,1.25rem)] font-medium leading-[1.15] max-[700px]:text-[0.96rem]">{wish.activity}</p>
                 <span className="col-start-2 mt-2 text-[0.67rem] tracking-wider text-[#be185d] uppercase">suggested by {wish.name}</span>
             </div>
             {canManageWish(wish) && (
@@ -739,10 +739,10 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                                 </div>
                             ) : (
                                 <>
-                                    <p className={`font-compagnon not-italic max-[700px]:text-[1.2rem] max-[700px]:leading-[1.15] ${selectedMessageSize}`}>{selectedWish.message}</p>
+                                    <p className={`whitespace-pre-wrap break-words font-compagnon not-italic max-[700px]:text-[1.2rem] max-[700px]:leading-[1.15] ${selectedMessageSize}`}>{selectedWish.message}</p>
                                     <div className="mt-4 rounded-2xl border border-dark-pink/15 bg-white/45 p-3.5">
                                         <p className="mb-1.5 flex items-center gap-2 text-[0.75rem] font-medium tracking-widest text-[#be185d] uppercase"><ListChecks size={15} aria-hidden="true" /> Bucket-list suggestion</p>
-                                        <p className={`font-compagnon not-italic max-[700px]:text-base max-[700px]:leading-snug ${selectedActivitySize}`}>{selectedWish.activity}</p>
+                                        <p className={`whitespace-pre-wrap break-words font-compagnon not-italic max-[700px]:text-base max-[700px]:leading-snug ${selectedActivitySize}`}>{selectedWish.activity}</p>
                                     </div>
                                     <p className="mt-4 font-reglo text-sm tracking-[0.06em] text-dark-pink uppercase">— {selectedWish.name}</p>
                                     {canEditSelected && (
@@ -861,11 +861,11 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
                                         <div className="min-w-0 space-y-4 p-2">
                                             <div>
                                                 <p className="mb-1 text-[0.62rem] font-bold tracking-widest text-[#be185d] uppercase">Your message</p>
-                                                <p className="font-compagnon text-lg leading-snug not-italic">{message}</p>
+                                                <p className="whitespace-pre-wrap break-words font-compagnon text-lg leading-snug not-italic">{message}</p>
                                             </div>
                                             <div className="rounded-2xl border border-dark-pink/15 bg-light-pink/50 p-3">
                                                 <p className="mb-1 text-[0.62rem] font-bold tracking-widest text-[#be185d] uppercase">For the bucket list</p>
-                                                <p className="font-compagnon text-base leading-snug not-italic">{activity}</p>
+                                                <p className="whitespace-pre-wrap break-words font-compagnon text-base leading-snug not-italic">{activity}</p>
                                             </div>
                                             <p className="font-reglo text-sm tracking-[0.06em] text-dark-pink uppercase">— {name}</p>
                                         </div>
