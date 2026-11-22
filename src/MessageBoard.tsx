@@ -1,15 +1,17 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type TouchEvent } from "react"
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, CircleAlert, Heart, ListChecks, Plus, Send, X } from "lucide-react"
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, CircleAlert, Heart, ListChecks, Pencil, Plus, Send, Trash2, X } from "lucide-react"
 import floralFallback from "./assets/floral-fallback.png"
 import { birthdayShootAssets, imageMediaAssets, preloadImagesForSession } from "./media"
-import { createWish, fetchWishes, type RemoteWish } from "./wishes-api"
+import { createWish, deleteWish, fetchWishes, getWishEditToken, removeWishEditToken, saveWishEditToken, updateWish, type RemoteWish } from "./wishes-api"
 
 type Wish = {
     id: string
     name: string
     message: string
     activity: string
+    imageId: string
     imageSource: string
+    createdAt: string
 }
 
 type BoardView = "wishes" | "bucket-list"
@@ -34,7 +36,9 @@ const wishFromApi = (wish: RemoteWish): Wish => ({
     name: wish.name,
     message: wish.message,
     activity: wish.activity,
+    imageId: wish.imageId,
     imageSource: photoChoices.find(({ id }) => id === wish.imageId)?.source ?? floralFallback,
+    createdAt: wish.createdAt,
 })
 
 const getFloatStyle = (index: number) => ({
@@ -57,6 +61,13 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
     const [error, setError] = useState("")
     const [syncError, setSyncError] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isEditingSelected, setIsEditingSelected] = useState(false)
+    const [isMutatingSelected, setIsMutatingSelected] = useState(false)
+    const [selectedActionError, setSelectedActionError] = useState("")
+    const [editName, setEditName] = useState("")
+    const [editMessage, setEditMessage] = useState("")
+    const [editActivity, setEditActivity] = useState("")
+    const [clock, setClock] = useState(() => Date.now())
     const [messagePage, setMessagePage] = useState(0)
     const [bucketPage, setBucketPage] = useState(0)
     const [isMobileBoard, setIsMobileBoard] = useState(() => window.matchMedia("(max-width: 700px)").matches)
@@ -89,6 +100,10 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
     )
     const selectedMessageLength = selectedWish?.message.trim().length ?? 0
     const selectedActivityLength = selectedWish?.activity.trim().length ?? 0
+    const selectedEditToken = selectedWish ? getWishEditToken(selectedWish.id) : null
+    const selectedEditableUntil = selectedWish ? Date.parse(selectedWish.createdAt) + 60_000 : 0
+    const canEditSelected = Boolean(selectedEditToken && clock < selectedEditableUntil)
+    const editSecondsRemaining = Math.max(0, Math.ceil((selectedEditableUntil - clock) / 1000))
     const selectedMessageSize = selectedMessageLength > 650
         ? "text-[0.88rem] leading-[1.28]"
         : selectedMessageLength > 380
@@ -114,6 +129,19 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
             window.clearTimeout(messageSettleTimeoutRef.current)
         }
     }, [])
+
+    useEffect(() => {
+        if (!selectedWish || !selectedEditToken || clock >= selectedEditableUntil) return
+        const timer = window.setInterval(() => {
+            const currentTime = Date.now()
+            setClock(currentTime)
+            if (currentTime >= selectedEditableUntil) {
+                removeWishEditToken(selectedWish.id)
+                setIsEditingSelected(false)
+            }
+        }, 1_000)
+        return () => window.clearInterval(timer)
+    }, [clock, selectedEditToken, selectedEditableUntil, selectedWish])
 
     useEffect(() => {
         let cancelled = false
@@ -308,6 +336,83 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
         setView(nextView)
     }
 
+    const openWish = (wish: Wish) => {
+        setClock(() => Date.now())
+        setSelectedWish(wish)
+        setIsEditingSelected(false)
+        setSelectedActionError("")
+    }
+
+    const closeSelectedWish = () => {
+        setSelectedWish(null)
+        setIsEditingSelected(false)
+        setSelectedActionError("")
+    }
+
+    const beginSelectedEdit = () => {
+        if (!selectedWish || !canEditSelected) return
+        setEditName(selectedWish.name)
+        setEditMessage(selectedWish.message)
+        setEditActivity(selectedWish.activity)
+        setSelectedActionError("")
+        setIsEditingSelected(true)
+    }
+
+    const saveSelectedEdit = async () => {
+        if (!selectedWish || !selectedEditToken || !canEditSelected) return
+        const cleanName = editName.trim()
+        const cleanMessage = editMessage.trim()
+        const cleanActivity = editActivity.trim()
+        if (!cleanName || !cleanMessage || !cleanActivity) {
+            setSelectedActionError("Name, wish and bucket-list suggestion are all required.")
+            return
+        }
+
+        setIsMutatingSelected(true)
+        setSelectedActionError("")
+        try {
+            const savedWish = await updateWish(selectedWish.id, {
+                name: cleanName,
+                message: cleanMessage,
+                activity: cleanActivity,
+                imageId: selectedWish.imageId,
+            }, selectedEditToken)
+            const wish = wishFromApi(savedWish)
+            setWishes((current) => current.map((candidate) => candidate.id === wish.id ? wish : candidate))
+            setSelectedWish(wish)
+            setIsEditingSelected(false)
+        } catch (mutationError) {
+            setSelectedActionError(mutationError instanceof Error
+                ? mutationError.message
+                : "This entry could not be updated.")
+        } finally {
+            setIsMutatingSelected(false)
+            setClock(Date.now())
+        }
+    }
+
+    const deleteSelectedWish = async () => {
+        if (!selectedWish || !selectedEditToken || !canEditSelected) return
+        if (!window.confirm("Delete this wish and bucket-list entry?")) return
+
+        setIsMutatingSelected(true)
+        setSelectedActionError("")
+        try {
+            await deleteWish(selectedWish.id, selectedEditToken)
+            removeWishEditToken(selectedWish.id)
+            setWishes((current) => current.filter(({ id }) => id !== selectedWish.id))
+            setHighlightedWishId((current) => current === selectedWish.id ? null : current)
+            closeSelectedWish()
+        } catch (mutationError) {
+            setSelectedActionError(mutationError instanceof Error
+                ? mutationError.message
+                : "This entry could not be deleted.")
+        } finally {
+            setIsMutatingSelected(false)
+            setClock(Date.now())
+        }
+    }
+
     const submitWish = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         const cleanName = name.trim()
@@ -347,13 +452,14 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
         setIsSubmitting(true)
         setError("")
         try {
-            const savedWish = await createWish({
+            const created = await createWish({
                 name: cleanName,
                 message: cleanMessage,
                 activity: cleanActivity,
                 imageId: selectedAsset.id,
             })
-            const wish = wishFromApi(savedWish)
+            saveWishEditToken(created.wish.id, created.editToken)
+            const wish = wishFromApi(created.wish)
 
             setWishes((current) => [wish, ...current])
             setHighlightedWishId(wish.id)
@@ -372,7 +478,7 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
     }
 
     const renderWishCards = (pageWishes: Wish[], prioritize = false) => pageWishes.map((wish, index) => (
-        <button type="button" className="wish-card-motion grid min-w-0 cursor-pointer grid-cols-[minmax(6.2rem,36%)_minmax(0,1fr)] items-center gap-[clamp(0.75rem,1.3vw,1.15rem)] rounded-[1.35rem] border border-light-pink/85 bg-light-pink/80 p-3 text-left shadow-[inset_0_1px_0_rgb(255_255_255/0.85),0_14px_34px_rgb(99_17_58/0.2)] backdrop-blur-xl transition-[box-shadow,background-color] hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.85),0_20px_42px_rgb(99_17_58/0.3)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-light-pink data-[highlighted=true]:bg-white/90 data-[highlighted=true]:shadow-[inset_0_0_0_3px_rgb(157_23_77),0_20px_48px_rgb(99_17_58/0.42)] max-[700px]:min-h-[7.3rem] max-[700px]:grid-cols-[minmax(5.4rem,31%)_minmax(0,1fr)] max-[700px]:gap-3 max-[700px]:rounded-[1.1rem] max-[700px]:p-2" key={wish.id} data-wish-id={wish.id} data-highlighted={wish.id === highlightedWishId} style={getFloatStyle(index)} onClick={() => setSelectedWish(wish)} aria-label={`Open message from ${wish.name}`}>
+        <button type="button" className="wish-card-motion grid min-w-0 cursor-pointer grid-cols-[minmax(6.2rem,36%)_minmax(0,1fr)] items-center gap-[clamp(0.75rem,1.3vw,1.15rem)] rounded-[1.35rem] border border-light-pink/85 bg-light-pink/80 p-3 text-left shadow-[inset_0_1px_0_rgb(255_255_255/0.85),0_14px_34px_rgb(99_17_58/0.2)] backdrop-blur-xl transition-[box-shadow,background-color] hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.85),0_20px_42px_rgb(99_17_58/0.3)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-light-pink data-[highlighted=true]:bg-white/90 data-[highlighted=true]:shadow-[inset_0_0_0_3px_rgb(157_23_77),0_20px_48px_rgb(99_17_58/0.42)] max-[700px]:min-h-[7.3rem] max-[700px]:grid-cols-[minmax(5.4rem,31%)_minmax(0,1fr)] max-[700px]:gap-3 max-[700px]:rounded-[1.1rem] max-[700px]:p-2" key={wish.id} data-wish-id={wish.id} data-highlighted={wish.id === highlightedWishId} style={getFloatStyle(index)} onClick={() => openWish(wish)} aria-label={`Open message from ${wish.name}`}>
             <div className="relative aspect-4/5 overflow-hidden rounded-xl border-[5px] border-dark-pink bg-dark-pink shadow-[0_8px_18px_rgb(99_17_58/0.22)] max-[700px]:max-h-[8.8rem] max-[700px]:rounded-lg max-[700px]:border-4">
                 <img className="block size-full object-cover" src={wish.imageSource} alt="" loading={prioritize ? "eager" : "lazy"} decoding="async" fetchPriority={prioritize && index < 2 ? "high" : "auto"} onError={(event) => { event.currentTarget.src = floralFallback }} />
                 <Heart className="absolute right-2 bottom-2 text-light-pink drop-shadow-[0_2px_4px_rgb(99_17_58/0.55)]" size={17} fill="currentColor" aria-hidden="true" />
@@ -575,20 +681,56 @@ export default function MessageBoard({ onBack }: MessageBoardProps) {
             </section>
 
             {selectedWish && (
-                <div className="modal-fade-motion absolute inset-0 z-80 grid place-items-center overflow-y-auto bg-[#50072d]/60 p-[max(1rem,env(safe-area-inset-top))_max(1rem,env(safe-area-inset-right))_max(1rem,env(safe-area-inset-bottom))_max(1rem,env(safe-area-inset-left))] backdrop-blur-[10px]" onMouseDown={() => setSelectedWish(null)}>
+                <div className="modal-fade-motion absolute inset-0 z-80 grid place-items-center overflow-y-auto bg-[#50072d]/60 p-[max(1rem,env(safe-area-inset-top))_max(1rem,env(safe-area-inset-right))_max(1rem,env(safe-area-inset-bottom))_max(1rem,env(safe-area-inset-left))] backdrop-blur-[10px]" onMouseDown={closeSelectedWish}>
                     <article className="modal-pop-motion relative grid h-[min(33rem,80dvh)] w-full max-w-208 grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.2fr)] overflow-hidden rounded-4xl border border-white/85 bg-light-pink/95 p-3 text-[#831843] shadow-[inset_0_1px_0_white,0_35px_100px_rgb(80_7_45/0.48)] backdrop-blur-3xl max-[700px]:block max-[700px]:h-auto max-[700px]:max-h-[90dvh] max-[700px]:max-w-md max-[700px]:overflow-y-auto max-[700px]:overscroll-contain max-[700px]:rounded-3xl max-[700px]:[-ms-overflow-style:none] max-[700px]:scrollbar-none max-[700px]:[&::-webkit-scrollbar]:hidden" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Message from ${selectedWish.name}`}>
-                        <button type="button" className="absolute top-4 right-4 z-10 grid size-10 place-items-center rounded-full border border-white/70 bg-light-pink/80 text-dark-pink shadow-lg backdrop-blur-xl" onClick={() => setSelectedWish(null)} aria-label="Close message"><X size={20} aria-hidden="true" /></button>
+                        <button type="button" className="absolute top-4 right-4 z-10 grid size-10 place-items-center rounded-full border border-white/70 bg-light-pink/80 text-dark-pink shadow-lg backdrop-blur-xl" onClick={closeSelectedWish} aria-label="Close message"><X size={20} aria-hidden="true" /></button>
                         <div className="mx-auto aspect-4/5 w-full max-w-88 self-center overflow-hidden rounded-[1.35rem] border-[5px] border-dark-pink bg-dark-pink max-[700px]:max-w-76">
                             <img className="block size-full object-cover" src={selectedWish.imageSource} alt={`Favourite chosen by ${selectedWish.name}`} onError={(event) => { event.currentTarget.src = floralFallback }} />
                         </div>
                         <div className="relative flex max-h-[calc(100%-1.5rem)] min-h-0 min-w-0 self-center flex-col justify-start overflow-y-auto overscroll-contain px-[clamp(1rem,3vw,2.25rem)] py-[clamp(1.25rem,2.5vw,2rem)] pr-[clamp(3.5rem,5vw,4.5rem)] [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden max-[700px]:h-auto max-[700px]:max-h-none max-[700px]:self-stretch max-[700px]:overflow-visible max-[700px]:px-[clamp(1rem,3vw,2.25rem)] max-[700px]:pt-5 max-[700px]:pb-4">
-                            {/* <p className="mb-2 text-[0.65rem] font-bold tracking-[0.13em] text-[#be185d] uppercase">A sweet message</p> */}
-                            <p className={`font-compagnon not-italic max-[700px]:text-[1.2rem] max-[700px]:leading-[1.15] ${selectedMessageSize}`}>{selectedWish.message}</p>
-                            <div className="mt-4 rounded-2xl border border-dark-pink/15 bg-white/45 p-3.5">
-                                <p className="mb-1.5 flex items-center gap-2 text-[0.75rem] font-medium tracking-widest text-[#be185d] uppercase"><ListChecks size={15} aria-hidden="true" /> Bucket-list suggestion</p>
-                                <p className={`font-compagnon not-italic max-[700px]:text-base max-[700px]:leading-snug ${selectedActivitySize}`}>{selectedWish.activity}</p>
-                            </div>
-                            <p className="mt-4 font-reglo text-sm tracking-[0.06em] text-dark-pink uppercase">— {selectedWish.name}</p>
+                            {isEditingSelected ? (
+                                <div className="space-y-3">
+                                    <p className="text-[0.68rem] font-bold tracking-widest text-[#be185d] uppercase">Edit entry · {editSecondsRemaining}s left</p>
+                                    <label className="block">
+                                        <span className="mb-1 block text-xs font-semibold">Name</span>
+                                        <input className="w-full rounded-xl border border-dark-pink/20 bg-white/65 px-3 py-2.5 font-reglo outline-none focus:border-deep-pink" value={editName} onChange={(event) => { setEditName(event.target.value); setSelectedActionError("") }} maxLength={60} />
+                                    </label>
+                                    <label className="block">
+                                        <span className="mb-1 block text-xs font-semibold">Wish</span>
+                                        <textarea className="min-h-28 w-full resize-none rounded-xl border border-dark-pink/20 bg-white/65 px-3 py-2.5 font-compagnon leading-snug outline-none focus:border-deep-pink" value={editMessage} onChange={(event) => { setEditMessage(event.target.value); setSelectedActionError("") }} maxLength={1000} />
+                                        <small className="block text-right text-[0.62rem] text-dark-pink/60">{editMessage.length}/1000</small>
+                                    </label>
+                                    <label className="block">
+                                        <span className="mb-1 block text-xs font-semibold">Bucket-list suggestion</span>
+                                        <textarea className="min-h-20 w-full resize-none rounded-xl border border-dark-pink/20 bg-white/65 px-3 py-2.5 font-compagnon leading-snug outline-none focus:border-deep-pink" value={editActivity} onChange={(event) => { setEditActivity(event.target.value); setSelectedActionError("") }} maxLength={500} />
+                                        <small className="block text-right text-[0.62rem] text-dark-pink/60">{editActivity.length}/500</small>
+                                    </label>
+                                    {selectedActionError && <p className="rounded-xl bg-dark-pink px-3 py-2 text-sm text-white" role="alert">{selectedActionError}</p>}
+                                    <div className="flex flex-wrap justify-end gap-2">
+                                        <button type="button" className="rounded-full border border-dark-pink/20 bg-white/50 px-4 py-2 text-sm font-medium" onClick={() => { setIsEditingSelected(false); setSelectedActionError("") }} disabled={isMutatingSelected}>Cancel</button>
+                                        <button type="button" className="flex items-center gap-1.5 rounded-full bg-dark-pink px-4 py-2 text-sm font-medium text-light-pink disabled:opacity-50" onClick={() => void saveSelectedEdit()} disabled={isMutatingSelected || !canEditSelected}><Pencil size={14} aria-hidden="true" /> {isMutatingSelected ? "Saving…" : "Save changes"}</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <p className={`font-compagnon not-italic max-[700px]:text-[1.2rem] max-[700px]:leading-[1.15] ${selectedMessageSize}`}>{selectedWish.message}</p>
+                                    <div className="mt-4 rounded-2xl border border-dark-pink/15 bg-white/45 p-3.5">
+                                        <p className="mb-1.5 flex items-center gap-2 text-[0.75rem] font-medium tracking-widest text-[#be185d] uppercase"><ListChecks size={15} aria-hidden="true" /> Bucket-list suggestion</p>
+                                        <p className={`font-compagnon not-italic max-[700px]:text-base max-[700px]:leading-snug ${selectedActivitySize}`}>{selectedWish.activity}</p>
+                                    </div>
+                                    <p className="mt-4 font-reglo text-sm tracking-[0.06em] text-dark-pink uppercase">— {selectedWish.name}</p>
+                                    {canEditSelected && (
+                                        <div className="mt-5 border-t border-dark-pink/15 pt-3">
+                                            <p className="mb-2 text-[0.68rem] font-semibold text-[#be185d]">You can edit or delete this entry for {editSecondsRemaining}s.</p>
+                                            {selectedActionError && <p className="mb-2 rounded-xl bg-dark-pink px-3 py-2 text-sm text-white" role="alert">{selectedActionError}</p>}
+                                            <div className="flex flex-wrap gap-2">
+                                                <button type="button" className="flex items-center gap-1.5 rounded-full bg-dark-pink px-4 py-2 text-sm font-medium text-light-pink" onClick={beginSelectedEdit} disabled={isMutatingSelected}><Pencil size={14} aria-hidden="true" /> Edit</button>
+                                                <button type="button" className="flex items-center gap-1.5 rounded-full border border-dark-pink/25 bg-white/50 px-4 py-2 text-sm font-medium" onClick={() => void deleteSelectedWish()} disabled={isMutatingSelected}><Trash2 size={14} aria-hidden="true" /> {isMutatingSelected ? "Deleting…" : "Delete"}</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </article>
                 </div>
